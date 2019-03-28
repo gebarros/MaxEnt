@@ -1,0 +1,128 @@
+#!/usr/bin/perl
+#This script select the proteins from putative anomalous regions, and if in some region there are rRNAs, an advice is included.
+
+use strict;
+use Getopt::Long;
+
+#Giving the mandatory informations. 
+my $help = 0 ; #Calls help for code execution options.
+my $coord_selected_regions = ''; #Receives the file name of coordinates of selected regions.
+my $infile_ptt = ''; #Receives the file name in ptt format (Obtained by NCBI).
+my $infile_rnt = ''; #Receives the file name in rnt format (Obtained by NCBI).
+my $id_replicon = ''; #Receives the identification of the replicon that will be used in the output file name.
+#Openning the get options.
+GetOptions ('h' => \$help ,'f=s' => \$coord_selected_regions , 'p=s' => \$infile_ptt ,'id=s'=> \$id_replicon ,'r=s' => \$infile_rnt) or die "Error in getting options\n";
+
+if ($help || !($coord_selected_regions && $infile_ptt && $infile_rnt && $id_replicon)) {die "\
+$0:\
+
+Parameters:\
+-h :Shows this help.\
+-f :File name of coordinates  of selected regions (Mandatory).\
+-p :File name in ptt format (Obtained by NCBI) (Mandatory).\
+-r :File name in rnt format (Obtained by NCBI) (Mandatory).\ 
+-id :Replicon identification (Mandatory).\
+\n";
+						       
+}
+
+#Opening the files.
+open(COORD,$coord_selected_regions) || die "Could not open the file $coord_selected_regions.\n";
+open(RESULT, ">ProteinsInAnomalousRegions.txt")|| die "Could not create the result file";
+
+my $header_coord = <COORD>;
+
+while(my $entry=<COORD>){
+    chomp($entry);
+	my ($region , $entropy , $coord)= split(/\t/, $entry);
+    $coord=~s/\s*//g;
+    $coord=~m/\s*(\d+)\.\.(\d+)/;
+    my $start = $1;
+    my $end = $2;
+        
+    open(PROTEIN, $infile_ptt) || die "Could not open the file $infile_ptt.\n";
+    print RESULT "===========|$region:$coord| ME:$entropy|============\nLocation\tLength\tSynonym\tProduct\n";
+       
+    #Selecting the proteins of interest present in selected region.
+    while(my $ptt=<PROTEIN>){
+	chomp($ptt);
+	if($ptt=~m/^\d+\.\.\d+\s*+/){
+	    $ptt=~m/(\d+)\.\.(\d+)/;
+	    my $start_ptt = $1;
+	    my $end_ptt = $2;
+	    
+	    if(($start_ptt >= $start || $end_ptt >= $start) && ($start_ptt<= $end || $end_ptt <= $end)){
+		
+		my ($Location, $Strand, $Length, $PID, $Gene, $Synonym, $Code, $COG, $Product) = split(/\t/, $ptt);
+		print RESULT "$Location\t$Length\t$Synonym\t$Product\n";
+	
+	    }
+	}
+	
+    }
+
+    close(PROTEIN); 
+}
+
+#Closing files.
+close(COORD);
+close(RESULT);
+
+###################################################################################################
+#Checking if selected regions have ribosomal genes.
+
+open(COOR,$coord_selected_regions) || die "Could not open the file $coord_selected_regions.\n";
+my $header_coord = <COOR>;
+
+open(RNA, $infile_rnt) || die "Could not open the file $infile_rnt.\n";
+
+my %regionsWithRibosomal;
+
+while(my $entry_2=<COOR>){
+    chomp($entry_2);
+    my ($region , $entropy , $coord)= split(/\t/, $entry_2);
+    $coord=~s/\s*//g;
+    $coord=~m/\s*(\d+)\.\.(\d+)/;
+    my $start = $1;
+    my $end = $2;
+
+   open(RNA, $infile_rnt) || die "Could not open the file $infile_rnt.\n";
+
+    #Checking if there are rRNAs.
+    while(my $rnt=<RNA>){
+	chomp($rnt);
+	if($rnt=~m/^\d+\.\.\d+\s*+/){
+	    $rnt=~m/(\d+)\.\.(\d+)/;
+	    my $start_rnt = $1;
+	    my $end_rnt = $2;
+	    
+	    if(($start_rnt >= $start || $end_rnt >= $start) && ($start_rnt<= $end || $end_rnt <= $end)){
+		
+		my ($Location, $Strand, $Length, $PID, $Gene, $Synonym, $Code, $COG, $Product) = split(/\t/, $rnt);
+		
+		if($Product=~m/ribosomal/gi){
+		    
+		    $regionsWithRibosomal{$region}="$entropy\t$coord\tRegion with ribosomal";
+		    
+		}
+	
+	    }
+
+	}
+    }
+    close(RNA);
+}
+
+open(OUTPUT, ">RegionsPredictedWithRibosomal.txt")|| die "Could not create the result file";
+print OUTPUT "Regions\tMaximum entropy\tCoordinates\n";
+
+foreach my $key(sort(keys(%regionsWithRibosomal))){
+
+    print OUTPUT "$key\t$regionsWithRibosomal{$key}\n";
+    
+}
+
+#Closing files.
+close(COOR);
+close(OUTPUT);
+
