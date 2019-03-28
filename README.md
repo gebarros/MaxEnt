@@ -92,7 +92,7 @@ With this analysis the user will have the outputs cited above, that can be explo
 
 **3-** *Run ExploringAnomalousRegions (Optional):*
 
-If the genome has the annotation files available (*ptt and rnt extension*), it is possible`enter code here` to get the proteins present in the predicted regions and to know whether some predicted region contain ribosomal.
+If the genome has the annotation files available (*ptt and rnt extension*), it is possible to get the proteins present in the predicted regions and to know whether some predicted region contain ribosomal.
 
 **3.1-** *Copy the file.ptt and file.rnt to the Outputs_(id) directory;*
 
